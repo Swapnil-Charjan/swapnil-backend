@@ -1,13 +1,16 @@
-import { v2 as cloudinary } from "cloudinary";
+import dotenv from "dotenv";
 import fs from "fs";
+dotenv.config();
+import { v2 as cloudinary } from "cloudinary";
+cloudinary.config();
 
 // Configure Cloudinary with environment variables
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-    secure: true
-});
+// cloudinary.config({
+//     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+//     api_key: process.env.CLOUDINARY_API_KEY,
+//     api_secret: process.env.CLOUDINARY_API_SECRET,
+//     secure: true
+// });
 
 const uploadOnCloudinary = async (localFilePath) => {
     try {
