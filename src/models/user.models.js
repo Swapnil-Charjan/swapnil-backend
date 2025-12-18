@@ -38,10 +38,21 @@ const userSchema = new Schema(
             type: String //cloudinary url
 
         },
-        watchHistory: {
-            type: Schema.Types.ObjectId,
-            ref: "Video"
-
+        watchHistory: [
+            {
+                type: Schema.Types.ObjectId,
+                ref: "Video"
+            }
+        ],
+        subscriptions: [
+            {
+                type: Schema.Types.ObjectId,
+                ref: "User"
+            }
+        ],
+        subscribersCount: {
+            type: Number,
+            default: 0
         },
         password: {
             type: String,
@@ -55,7 +66,7 @@ const userSchema = new Schema(
     },
     {
         timestamps: true
-    }
+    },
 )
 
 userSchema.pre("save", async function (next) {                      //Bcrypt password
@@ -76,7 +87,7 @@ userSchema.methods.generateAccessToken = function () {
             username: this.username,
             fullname: this.fullname
         },
-        process.env.ACCESS_TOKEN_SECRET, 
+        process.env.ACCESS_TOKEN_SECRET,
         {
             expiresIn: process.env.ACCESS_TOKEN_EXPIRY
         }

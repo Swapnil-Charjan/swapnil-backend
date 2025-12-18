@@ -1,8 +1,12 @@
 import { Router } from "express";
 import {
-    getAllVideos,
+    getMyVideos,
     uploadVideos,
     getVideoDetails,
+    getUserVideos,
+    getWatchHistory,
+    subscribeChannel,
+    unsubscribeChannel
 } from "../controllers/videos.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
@@ -23,8 +27,11 @@ router.route("/uploadVideo").post(
     ]),
     uploadVideos
 );
-
-router.route("/getAllVideos").get(verifyJWT, getAllVideos);
+router.get("/my-videos", verifyJWT, getMyVideos);
 router.route("/getVideoDetails/:id").get(verifyJWT, getVideoDetails);
+router.route("/channel/:userId/videos").get(verifyJWT, getUserVideos);
+router.route("/watchHistory").get(verifyJWT, getWatchHistory);
+router.route("/subscribe/:channelId").post(verifyJWT, subscribeChannel);
+router.route("/unsubscribe/:channelId").post(verifyJWT, unsubscribeChannel);
 
 export default router;
