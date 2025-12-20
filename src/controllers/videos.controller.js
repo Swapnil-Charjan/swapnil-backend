@@ -1,10 +1,11 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import {User} from "../models/user.models.js";
+import { User } from "../models/user.models.js";
 import { Video } from "../models/video.models.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import mongoose from "mongoose";
+import { getPagination } from "../utils/common.js";
 
 //Upload Video
 const uploadVideos = asyncHandler(async (req, res) => {
@@ -14,7 +15,7 @@ const uploadVideos = asyncHandler(async (req, res) => {
     for (const [key, value] of Object.entries(req.body)) {
         if (!value) {
             return res.status(400).json({
-                message: `${key} field is required!`
+                message: `${key} field is required!`,
             });
         }
     }
@@ -48,12 +49,10 @@ const uploadVideos = asyncHandler(async (req, res) => {
 
 //Get login user video
 const getMyVideos = asyncHandler(async (req, res) => {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 10;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = getPagination(req.query, 10);
     const userId = req.user._id;
 
-    const totalVideos = await Video.countDocuments();
+    const totalVideos = await Video.countDocuments({ owner: userId });
 
     const videos = await Video.find({ owner: userId })
         .sort({ createdAt: -1 })
@@ -67,12 +66,12 @@ const getMyVideos = asyncHandler(async (req, res) => {
                 videos,
                 pagination: {
                     totalVideos,
-                    currentPage: page,
-                    totalPages: Math.ceil(totalVideos / limit),
+                    page,
                     limit,
+                    totalPages: Math.ceil(totalVideos / limit),
                 },
             },
-            "All videos fetched successfully!"
+            "My videos fetched successfully!"
         )
     );
 });
@@ -97,28 +96,46 @@ const getVideoDetails = asyncHandler(async (req, res) => {
 
     if (req.user?._id) {
         await User.findByIdAndUpdate(req.user._id, {
-            $addToSet: { watchHistory: video._id }
+            $addToSet: { watchHistory: video._id },
         });
     }
 
-    return res.status(200).json(
-        new ApiResponse(200, video, "Video details fetched successfully")
-    );
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(200, video, "Video details fetched successfully")
+        );
 });
 
 //getVideosOfAnyChannel
 const getUserVideos = asyncHandler(async (req, res) => {
     const { userId } = req.params;
+    const { page, limit, skip } = getPagination(req.query, 10);
+    const totalVideos = await Video.countDocuments({ owner: userId });
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
         throw new ApiError(400, "Invalid user ID");
     }
 
     const videos = await Video.find({ owner: userId, isPublished: true })
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
 
     return res.status(200).json(
-        new ApiResponse(200, videos, "Channel videos fetched successfully")
+        new ApiResponse(
+            200,
+            {
+                videos,
+                pagination: {
+                    totalVideos,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(totalVideos / limit),
+                },
+            },
+            "Channel videos fetched successfully"
+        )
     );
 });
 
@@ -128,20 +145,19 @@ const getWatchHistory = asyncHandler(async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 10;
     const skip = (page - 1) * limit;
 
-    const user = await User.findById(req.user._id)
-        .populate({
-            path: "watchHistory",
-            options: {
-                sort: { createdAt: -1 },
-                skip,
-                limit
-            },
-            select: "title thumbnail duration views owner createdAt",
-            populate: {
-                path: "owner",
-                select: "username avatar"
-            }
-        });
+    const user = await User.findById(req.user._id).populate({
+        path: "watchHistory",
+        options: {
+            sort: { createdAt: -1 },
+            skip,
+            limit,
+        },
+        select: "title thumbnail duration views owner createdAt",
+        populate: {
+            path: "owner",
+            select: "username avatar",
+        },
+    });
 
     if (!user) {
         throw new ApiError(404, "User not found");
@@ -154,14 +170,13 @@ const getWatchHistory = asyncHandler(async (req, res) => {
                 history: user.watchHistory,
                 pagination: {
                     page,
-                    limit
-                }
+                    limit,
+                },
             },
             "Watch history fetched successfully"
         )
     );
 });
-
 
 //Subscribe Controller
 const subscribeChannel = asyncHandler(async (req, res) => {
@@ -174,7 +189,7 @@ const subscribeChannel = asyncHandler(async (req, res) => {
 
     const alreadySubscribed = await User.findOne({
         _id: userId,
-        subscriptions: channelId
+        subscriptions: channelId,
     });
 
     if (alreadySubscribed) {
@@ -182,16 +197,16 @@ const subscribeChannel = asyncHandler(async (req, res) => {
     }
 
     await User.findByIdAndUpdate(userId, {
-        $push: { subscriptions: channelId }
+        $push: { subscriptions: channelId },
     });
 
     await User.findByIdAndUpdate(channelId, {
-        $inc: { subscribersCount: 1 }
+        $inc: { subscribersCount: 1 },
     });
 
-    return res.status(200).json(
-        new ApiResponse(200, null, "Subscribed successfully")
-    );
+    return res
+        .status(200)
+        .json(new ApiResponse(200, null, "Subscribed successfully"));
 });
 
 //UnsubscribeChannel
@@ -200,16 +215,16 @@ const unsubscribeChannel = asyncHandler(async (req, res) => {
     const userId = req.user._id;
 
     await User.findByIdAndUpdate(userId, {
-        $pull: { subscriptions: channelId }
+        $pull: { subscriptions: channelId },
     });
 
     await User.findByIdAndUpdate(channelId, {
-        $inc: { subscribersCount: -1 }
+        $inc: { subscribersCount: -1 },
     });
 
-    return res.status(200).json(
-        new ApiResponse(200, null, "Unsubscribed successfully")
-    );
+    return res
+        .status(200)
+        .json(new ApiResponse(200, null, "Unsubscribed successfully"));
 });
 
 export {
