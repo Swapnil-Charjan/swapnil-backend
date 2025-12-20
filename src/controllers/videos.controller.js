@@ -111,7 +111,7 @@ const getVideoDetails = asyncHandler(async (req, res) => {
 const getUserVideos = asyncHandler(async (req, res) => {
     const { userId } = req.params;
     const { page, limit, skip } = getPagination(req.query, 10);
-    const totalVideos = await Video.countDocuments({ owner: userId });
+    const totalVideos = await Video.countDocuments({ owner: req.user?._id });
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
         throw new ApiError(400, "Invalid user ID");
